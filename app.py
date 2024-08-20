@@ -24,8 +24,8 @@ def index():
 #----------------------------------------------Create User----------------------------------------------------#
 
 @app.post( 
-    "/create-user", 
-    status_code = status.HTTP_201_CREATED 
+  "/create-user", 
+  status_code = status.HTTP_201_CREATED 
 )
 def create_new_user( 
   user_req: UserReq, 
@@ -159,15 +159,22 @@ def update_user(
   status_code = status.HTTP_204_NO_CONTENT
 )
 def delete_user(
-  response: Response,
   user_id: int,
   db: Session = Depends(get_db)
 ):
   
-  db.query(user).filter(user.id == user_id).delete(synchronize_session = False)
-  db.commit()
+  delete_user = db.query(user).filter(user.id == user_id)
+  get_user = delete_user.first()
 
-  return {"details": "Successfully Deleted"}
+  if not get_user:
+    raise HTTPException(
+      status_code = status.HTTP_404_NOT_FOUND,
+      detail = "User Not Found"
+    )
+  
+  delete_user.delete(synchronize_session = False)
+  db.commit()
+  return
     
 if __name__ == "__main__":
   uvicorn.run(app, host = "127.0.0.1", port = 9000)
