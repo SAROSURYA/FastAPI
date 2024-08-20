@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Path, Depends, status, Response, HTTPException
-from typing import Optional
 import uvicorn
 from user import UserReq, UpdateUser
 from models import Base, user
@@ -32,13 +31,16 @@ def create_new_user(
   user_req: UserReq, 
   db: Session = Depends(get_db)
 ):
+  
   new_user = user(
     first_name = user_req.first_name,
     last_name = user_req.last_name
   )
+
   db.add(new_user)
   db.commit()
   db.refresh(new_user)
+  
   return new_user
 
 #----------------------------------------------Get All User----------------------------------------------------#
@@ -76,7 +78,7 @@ def get_user_by_id(
   
   if not get_user:
     response.status_code = status.HTTP_404_NOT_FOUND
-    return {"message": "User Not Found"}
+    return {"details": "User Not Found"}
   
   return get_user
 
@@ -96,7 +98,7 @@ def get_user_by_id(
 
   if not get_user:
     response.status_code = status.HTTP_404_NOT_FOUND
-    return {"message": "User Not Found"}
+    return {"details": "User Not Found"}
   
   return get_user
 
@@ -104,7 +106,6 @@ def get_user_by_id(
 
 @app.get( "/get-user-by-lastname/{last_name}" )
 def get_user_by_id(
-  response: Response, 
   last_name: str = Path(description="The last name of the user you want to view"), 
   db: Session = Depends(get_db)
 ):
@@ -112,8 +113,6 @@ def get_user_by_id(
   get_user = db.query(user).filter(user.last_name == last_name).first()
 
   if not get_user:
-    # response.status_code = status.HTTP_404_NOT_FOUND
-    # return {"message": "User Not Found"}
     raise HTTPException(
       status_code = status.HTTP_404_NOT_FOUND,
       detail = "User Not Found"
@@ -121,29 +120,54 @@ def get_user_by_id(
   
   return get_user
 
-# @app.put("/update-student/{student_id}")
-# def update_student(student_id: int, student: UpdateStudent):
-#   if student_id not in students:
-#     return {"res": "User Not Found"}
-  
-#   if student.name != None:
-#     students[student_id].name = student.name
-  
-#   if student.age != None:
-#     students[student_id].age = student.age
+#----------------------------------------------Update User----------------------------------------------------#
 
-#   if student.year != None:
-#     students[student_id].year = student.year
+@app.put(
+  "/update-user/{user_id}",
+  status_code = status.HTTP_202_ACCEPTED
+)
+def update_user(
+  user_id: int, 
+  user_req: UpdateUser,
+  db: Session = Depends(get_db)
+):
 
-#   return {"res": "Successfully Updated"}
-
-# @app.delete("/delete-student/{student_id}")
-# def delete_student(student_id: int):
-#   if student_id not in students:
-#     return {"res": "User Not Found"}
+  update_user = db.query(user).filter(user.id == user_id)
+  get_user = update_user.first()
   
-#   del students[student_id]
-#   return {"res": "Successfully Deleted"}
+  if not get_user:
+    raise HTTPException(
+      status_code = status.HTTP_404_NOT_FOUND,
+      detail = "User Not Found"
+    )
+  
+  if user_req.first_name is not None:
+    get_user.first_name = user_req.first_name
+  
+  if user_req.last_name is not None:
+    get_user.last_name = user_req.last_name
+
+  db.commit()
+  db.refresh(get_user)
+
+  return {"detail": "Updated Successfully"}
+
+#----------------------------------------------Delet User----------------------------------------------------#
+
+@app.delete(
+  "/delete-user/{user_id}",
+  status_code = status.HTTP_204_NO_CONTENT
+)
+def delete_user(
+  response: Response,
+  user_id: int,
+  db: Session = Depends(get_db)
+):
+  
+  db.query(user).filter(user.id == user_id).delete(synchronize_session = False)
+  db.commit()
+
+  return {"details": "Successfully Deleted"}
     
 if __name__ == "__main__":
   uvicorn.run(app, host = "127.0.0.1", port = 9000)
