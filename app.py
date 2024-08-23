@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Path, Depends, status, Response, HTTPException
 import uvicorn
-from user import UserReq, UpdateUser
+from user import UserReq, UpdateUserReq, UserRes
 from models import Base, user
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
+from typing import List
+from passwordEncrypt import pwd_cxt
 
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -32,9 +35,13 @@ def create_new_user(
   db: Session = Depends(get_db)
 ):
   
+  hashedPassword = pwd_cxt.hash(user_req.password)
+  
   new_user = user(
     first_name = user_req.first_name,
-    last_name = user_req.last_name
+    last_name = user_req.last_name,
+    password = hashedPassword,
+    email = user_req.email
   )
 
   db.add(new_user)
@@ -47,7 +54,8 @@ def create_new_user(
 
 @app.get( 
   "/get-all-user",
-  status_code = status.HTTP_200_OK
+  status_code = status.HTTP_200_OK,
+  response_model = List[UserRes]
 )
 def get_all_user( 
   response: Response, 
@@ -58,7 +66,7 @@ def get_all_user(
 
   if not get_user:
     response.status_code = status.HTTP_404_NOT_FOUND
-    return {"message": "No Data Found"}
+    return get_user
   
   return get_user
 
@@ -66,7 +74,8 @@ def get_all_user(
 
 @app.get( 
   "/get-user-by-id/{user_id}",
-  status_code = status.HTTP_200_OK 
+  status_code = status.HTTP_200_OK,
+  response_model = UserRes
 )
 def get_user_by_id(
   response: Response, 
@@ -128,7 +137,7 @@ def get_user_by_id(
 )
 def update_user(
   user_id: int, 
-  user_req: UpdateUser,
+  user_req: UpdateUserReq,
   db: Session = Depends(get_db)
 ):
 
@@ -146,6 +155,12 @@ def update_user(
   
   if user_req.last_name is not None:
     get_user.last_name = user_req.last_name
+
+  if user_req.password is not None:
+    get_user.password = user_req.password
+  
+  if user_req.email is not None:
+    get_user.email = user_req.email
 
   db.commit()
   db.refresh(get_user)
